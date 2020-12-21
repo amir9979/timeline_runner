@@ -1,0 +1,156 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Extractor
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  issues:
+    types: [opened]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+    
+  # This workflow contains a single job called "build"
+  refactoring:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - name: Checkout RefactoringMiner
+      uses: actions/checkout@v2
+      with:
+        repository: amir9979/RefactoringMiner
+        path: .
+        fetch-depth: 0
+        ref: main
+
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+
+    - name: Build with Gradle
+      run: ./gradlew.bat distZip
+    
+
+    - name: Checkout tools repo
+      continue-on-error: true
+      uses: actions/checkout@v2
+      with:
+        repository: ${{github.event.issue.title}}
+        path: ./my-tools
+        fetch-depth: 0
+    
+    - name: fetch  
+      continue-on-error: true
+      run: git fetch
+      working-directory: ./my-tools
+    
+    - name: unzip
+      shell: python
+      run: |
+            import zipfile
+            with zipfile.ZipFile(r"build\distributions\RefactoringMiner-2.0.2.zip","r") as zip_ref:
+              zip_ref.extractall("target")
+
+    - name: execute
+      run: target\RefactoringMiner-2.0.2\bin\RefactoringMiner.bat -a my-tools master > out.json
+
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        # Artifact name
+        name: ${{github.event.issue.number}}.json
+        # A file, directory or wildcard pattern that describes what to upload
+        path: out.json
+
+
+    - name: Close Issue
+      continue-on-error: true
+      uses: peter-evans/close-issue@v1
+      with:
+        comment: |
+          The issue you have reported seems to be resolved now.
+  
+  repo_mining:
+    # The type of runner that the job will run on
+    runs-on: windows-latest
+            
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+
+    
+    - name: Checkout repository_mining
+      uses: actions/checkout@v2
+      with:
+        repository: amir9979/repository_mining
+        path: .
+        fetch-depth: 0
+    
+    - name: Checkout javadiff
+      uses: actions/checkout@v2
+      with:
+        repository: amir9979/javadiff
+        path: ./javadiff
+        fetch-depth: 0
+
+    - name: Checkout caching
+      uses: actions/checkout@v2
+      with:
+        repository: amir9979/caching
+        path: ./caching
+        fetch-depth: 0
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest 
+        pip install gitpython
+        pip install jira
+        pip install termcolor 
+        pip install openpyxl  
+        pip install javalang
+        pip install pathlib
+        pip install junitparser
+        pip install -r requirements.txt
+    - name: javadiff_install
+      run: python ./javadiff/setup.py install
+
+    - name: echo
+      run: echo 123 > repository_data\r.txt
+
+    - name: longpaths
+      run: git config --system core.longpaths true
+
+    - name: ls
+      run: ls -R
+
+    - name: execute
+      run: python extract_all.py ${{github.event.issue.title}}
+
+    - name: Upload repository_data
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        # Artifact name
+        name: repository_data
+        # A file, directory or wildcard pattern that describes what to upload
+        path: repository_data
